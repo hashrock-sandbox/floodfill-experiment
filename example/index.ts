@@ -1,5 +1,6 @@
 import {BinaryImage} from "../src/BinaryImage"
 import {floodFillWithGap} from "../src/FloodFill"
+import * as lodash from "lodash"
 
 const canvas = document.querySelector("#canvas") as HTMLCanvasElement
 const context = canvas.getContext("2d")!
@@ -7,15 +8,18 @@ const context = canvas.getContext("2d")!
 const floodfillCanvas = document.querySelector("#floodfill-canvas") as HTMLCanvasElement
 const floodfillContext = floodfillCanvas.getContext("2d")!
 
+const floodfillPreview = document.querySelector("#floodfill-preview") as HTMLCanvasElement
+const floodfillPreviewContext = floodfillPreview.getContext("2d")!
+
 context.strokeStyle = "black"
-context.lineWidth = 4
+context.lineWidth = 2
 context.lineCap = "round"
 
 let dragging = false
 let lastX = 0
 let lastY = 0
 
-let allowedGap = 0
+let allowedGap = 20
 
 function clearDrawing() {
   context.clearRect(0, 0, canvas.width, canvas.height)
@@ -33,19 +37,34 @@ canvas.addEventListener("pointerdown", e => {
     const x = Math.round(e.offsetX + 0.5)
     const y = Math.round(e.offsetY + 0.5)
     console.time("floodFill")
-    //floodFill(x, y, src, dst)
     floodFillWithGap(x, y, allowedGap, src, dst)
     console.timeEnd("floodFill")
     dst.toImageData(new Uint8ClampedArray([0,0,0,0]), new Uint8ClampedArray([0,0,255,255]), data)
     floodfillContext.putImageData(data, 0, 0)
   } else {
-    clearFloodFill()
+    //clearFloodFill()
     dragging = true
     lastX = e.offsetX
     lastY = e.offsetY
     canvas.setPointerCapture(e.pointerId)
   }
 })
+
+function preview(e: MouseEvent){
+  floodfillPreviewContext.clearRect(0, 0, floodfillCanvas.width, floodfillCanvas.height)
+  const data = context.getImageData(0, 0, canvas.width, canvas.height)
+  const src = BinaryImage.fromImageData(data, ([r, g, b, a]) => a === 0 ? 1 : 0)
+  const dst = new BinaryImage(canvas.width, canvas.height)
+  const x = Math.round(e.offsetX + 0.5)
+  const y = Math.round(e.offsetY + 0.5)
+  console.time("floodFill")
+  floodFillWithGap(x, y, allowedGap, src, dst)
+  console.timeEnd("floodFill")
+  dst.toImageData(new Uint8ClampedArray([0,0,0,0]), new Uint8ClampedArray([230,230,230,255]), data)
+  floodfillPreviewContext.putImageData(data, 0, 0)
+
+}
+
 canvas.addEventListener("pointermove", e => {
   if (dragging) {
     context.beginPath()
@@ -56,6 +75,8 @@ canvas.addEventListener("pointermove", e => {
     context.stroke()
   }
 })
+canvas.addEventListener("pointermove", lodash.throttle(preview, 500))
+
 canvas.addEventListener("pointerup", e => {
   dragging = false
 })
